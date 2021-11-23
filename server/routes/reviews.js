@@ -131,7 +131,7 @@ reviewsRouter.route("/meta").get(async function (req, res) {
         db 
         .collection('reviews')
         // count all documents for this product and this rating value
-        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {rating: rating}]}, (err, count) => {
+        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {rating: rating}, {reported: false}]}, (err, count) => {
           if (err) {
             reject(err);
           }
@@ -150,7 +150,7 @@ reviewsRouter.route("/meta").get(async function (req, res) {
       return new Promise(function(resolve, reject) {
         db
         .collection('reviews')
-        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {recommend: recommendedChoice}]}, (err, count) => {
+        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {recommend: recommendedChoice}, {reported: false}]}, (err, count) => {
           if (err) reject(err);
           recommended[recommendedChoice] = `${count}`;
           resolve();
@@ -217,42 +217,29 @@ reviewsRouter.route("/meta").get(async function (req, res) {
   }
 })
 
+reviewsRouter.route("/:review_id/helpful").put(async function (req, res) {
+    db
+    .collection('reviews')
+    .findOneAndUpdate(
+      {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
+      {$inc: {helpfulness: 1}}
+    ,(err) => {
+      if (err) throw err;
+      res.send()
+    })
+
+})
+
+reviewsRouter.route("/:review_id/report").put(async function (req, res) {
+  db
+  .collection('reviews')
+  .findOneAndUpdate(
+    {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
+    {$set: {reported: true}}
+  ,(err) => {
+    if (err) throw err;
+    res.send()
+  })
+})
+
 module.exports = reviewsRouter 
-
-
-/**
- * 
- * {
-    "product_id": "44388",
-    "ratings": {
-        "1": "8",
-        "2": "10",
-        "3": "14",
-        "4": "17",
-        "5": "29"
-    },
-    "recommended": {
-        "false": "8",
-        "true": "70"
-    },
-    "characteristics": {
-        "Fit": {
-            "id": 148890,
-            "value": "2.3111111111111111"
-        },
-        "Length": {
-            "id": 148891,
-            "value": "2.4888888888888889"
-        },
-        "Comfort": {
-            "id": 148892,
-            "value": "2.5319148936170213"
-        },
-        "Quality": {
-            "id": 148893,
-            "value": "2.8085106382978723"
-        }
-    }
-}
- * 
- */
