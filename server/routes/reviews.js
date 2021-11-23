@@ -74,6 +74,9 @@ reviewsRouter.route("/").get(async function (req, res) {
       grabPhotos, // inputs an array containing the photos for this review
       query, // gets only reviews for this product that haven't been reported
       include // exclude properties: _id, reported, reviewer_email
+      // TODO: try sorting in aggregate
+      // TODO: try limit in aggregate
+      // TODO: $set date to reformat
     ])
     .sort(sortMethod) // sort returned reviews by helpful, newest, or relevant
     .limit(Number(req.query.count) || 5) // limit reviews returned to count or default to 5
@@ -101,26 +104,155 @@ reviewsRouter.route("/").get(async function (req, res) {
   }
 })
 
+reviewsRouter.route("/meta").get(async function (req, res) {
+  // conditional checking if product id is specified
+  if (!req.query.product_id) {
+    //send error description
+    res.send('Error: invalid product_id provided');
+  } else {
+    // define output variable
+    var reviewsMeta = {
+      product_id: req.query.product_id
+    };
+    // define helper variables
+    var ratings = {}, ratingsArray = [1, 2, 3, 4, 5]
+    var recommended = {};
+    var characteristics = {};
+    var charPromises = []
+    var promiseArray = [];
+    
+    //
+
+    // TODO: 
+
+    //define funtion capable of querying the database for the rating counts
+    var ratingPromise = function(rating) { // pass the rating into the promise
+      return new Promise(function(resolve, reject) { // return promise to populate promise array
+        db 
+        .collection('reviews')
+        // count all documents for this product and this rating value
+        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {rating: rating}]}, (err, count) => {
+          if (err) {
+            reject(err);
+          }
+          // conditiional checking if count is greater than 0
+          if (count) {
+            ratings[rating] = `${count}`;
+          }
+          // resolve the promise
+          resolve();
+        })
+      })
+    }
+    
+    //define function capable of querying the database for the recommended counts
+    var recommendPromise = function(recommendedChoice) {
+      return new Promise(function(resolve, reject) {
+        db
+        .collection('reviews')
+        .countDocuments({$and: [{product_id: Number(req.query.product_id)}, {recommend: recommendedChoice}]}, (err, count) => {
+          if (err) reject(err);
+          recommended[recommendedChoice] = `${count}`;
+          resolve();
+        })
+      })
+    }
+
+    // console.log(db.collection('characeristic_reviews').aggregate().exec)
+
+    var characteristicPromise = function() {
+      return new Promise(function(resolve, reject) {
+        db
+        .collection('characteristics')
+        .find({product_id: Number(req.query.product_id)})
+        .toArray(function(err, result) {
+          if (err) throw err;
+          result.map(characteristic => {
+            var charMatch = {$match: { characteristic_id: Number(characteristic.id) }}
+            var charGroup = {$group: { _id: Number(characteristic.id), average: {$avg: '$value'} }}
+            charPromises.push(
+              new Promise(function(resolve, reject) {
+                db
+                .collection('characteristic_reviews')
+                // .find({characteristic_id: Number(characteristic.id)})
+                .aggregate([charMatch, charGroup])
+                .toArray((err, result) => {
+                  if (err) reject(err);
+                  characteristics[characteristic.name] = {
+                    id: result[0]._id,
+                    value: result[0].average
+                  }
+                  resolve();
+                })
+              })
+            )
+    
+          })
+          resolve()
+        })
+      })
+    }
+  
+  //iterare through all possible ratings and push the promises into the promise array
+    ratingsArray.map(rating => {
+      promiseArray.push(ratingPromise(rating));
+    });
+
+    promiseArray.push(recommendPromise(true));
+    promiseArray.push(recommendPromise(false));
+    
+    promiseArray.push(characteristicPromise())
+
+    // wait for all promises to be completed then send results
+    Promise.all(promiseArray)
+    .then(() => {
+      Promise.all(charPromises)
+      .then(() => {
+        reviewsMeta.ratings = ratings
+        reviewsMeta.recommended = recommended
+        reviewsMeta.characteristics = characteristics
+        res.send(reviewsMeta)
+      })
+    })
+  }
+})
+
 module.exports = reviewsRouter 
 
 
 /**
- * trying to produce:
- *         {
-            "review_id": 1094706,
-            "rating": 2,
-            "summary": "Does not fit my dino body",
-            "recommend": true,
-            "response": null,
-            "body": "Im a dinosaur soo I should I should expect tight clothes. big fingers too.",
-            "date": "2021-11-11T00:00:00.000Z",
-            "reviewer_name": "dinodude",
-            "helpfulness": 3,
-            "photos": [
-                {
-                    "id": 2100431,
-                    "url": "https://i.insider.com/5e90ceda92e8ba75275ad038"
-                }
-            ]
+ * 
+ * {
+    "product_id": "44388",
+    "ratings": {
+        "1": "8",
+        "2": "10",
+        "3": "14",
+        "4": "17",
+        "5": "29"
+    },
+    "recommended": {
+        "false": "8",
+        "true": "70"
+    },
+    "characteristics": {
+        "Fit": {
+            "id": 148890,
+            "value": "2.3111111111111111"
         },
+        "Length": {
+            "id": 148891,
+            "value": "2.4888888888888889"
+        },
+        "Comfort": {
+            "id": 148892,
+            "value": "2.5319148936170213"
+        },
+        "Quality": {
+            "id": 148893,
+            "value": "2.8085106382978723"
+        }
+    }
+}
+ * 
  */
