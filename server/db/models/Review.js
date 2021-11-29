@@ -7,10 +7,8 @@ const reviewSchema = new mongoose.Schema({
   date: Number,
   summary: String,
   body: String,
-  recommend: {
-    type: String,
-    enum: ['true', 'false']
-  },
+  recommend: Boolean,
+  reported: Boolean,
   reviewer_name: String,
   reviewer_email: String,
   response: String,

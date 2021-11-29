@@ -13,7 +13,8 @@ const express = require("express");
 // The router will be added as a middleware and will take control of requests starting with path /listings.
 const reviewsRouter = express.Router();
 const db = require('../db/conn.js')
-const { Review, Review_photos, Characteristics, Characteristics_reviews } = require('../db/models')
+const { Review, Review_photos, Characteristics, Characteristics_reviews } = require('../db/models');
+const Characteristic_reviews = require("../db/models/Characteristics_reviews.js");
 
 
 reviewsRouter.route("/").get(async function (req, res) {
@@ -243,7 +244,129 @@ reviewsRouter.route("/:review_id/report").put(async function (req, res) {
 })
 
 reviewsRouter.route("/").post(async function (req, res) {
+  // define promise array
+  var promiseArray = []
+  var innerPromiseArray = []
+  // get last review id
+  var lastReviewId, lastPhotoId, lastCharId
 
+  promiseArray.push(new Promise(function(resolve, reject) {
+    db
+    .collection('reviews')
+    .findOne({}, { sort: {'review_id': -1}}, (err, lastReview) => {
+      if (err) {
+        reject()
+      }
+      lastReviewId = lastReview.review_id
+      resolve()
+    });
+  }))
+
+  if (req.body.photos.length > 0) {
+    promiseArray.push(new Promise(function(resolve, reject) {
+      db
+      .collection('reviews_photos')
+      .findOne({}, { sort: {'id': -1}}, (err, lastPhoto) => {
+        if (err) throw err
+        lastPhotoId = lastPhoto.id
+        resolve()
+      })
+    }))
+  }
+
+  promiseArray.push(
+    new Promise(function(resolve, reject) {
+      db
+      .collection('characteristic_reviews')
+      .findOne({}, { sort: {'id': -1}}, (err, lastCharacteristic) => {
+        if (err) reject();
+        lastCharId = lastCharacteristic.id
+        resolve()
+      })
+    })
+  )
+
+  Promise.all(promiseArray)
+  .then(() => {
+    // define the new review
+    var newReview = new Review({
+      review_id: lastReviewId + 1,
+      product_id: req.body.product_id,
+      rating: req.body.rating,
+      date: Date.now(),
+      summary: req.body.summary,
+      body: req.body.body,
+      recommend: req.body.recommend,
+      reported: false,
+      reviewer_name: req.body.name,
+      reviewer_email: req.body.email,
+      response: null,
+      helpfulness: 0
+    })
+  
+    // define the new photos
+    // check if photos are trying to be posted
+    if (req.body.photos.length > 0) {
+      // post photos with incremental id
+      //for loop going through req.body.photos array
+      for (var i = 0; i < req.body.photos.length; i++) {
+        var newPhotos = new Review_photos({
+          id: lastPhotoId + i + 1,
+          review_id: lastReviewId + 1,
+          url: req.body.photos[i]
+        })
+        innerPromiseArray.push(
+          new Promise(function(resolve, reject) {
+            db
+            .collection('reviews_photos')
+            .insertOne(newPhotos, (err) => {
+              if (err) reject()
+              resolve()
+            })
+          })
+        )
+      }
+    }
+
+    // define the new characteristic value
+    const characteristicsKeys = Object.keys(req.body.characteristics)
+    for (var i = 0; i < characteristicsKeys.length; i ++) {
+      var newCharactertisticRating = new Characteristic_reviews({
+        id: lastCharId + i + 1,
+        characteristic_id: Number(characteristicsKeys[i]),
+        review_id: lastReviewId + 1,
+        value: req.body.characteristics[characteristicsKeys[i]]
+      })
+    }
+
+    // insert the new review into the reviews collection
+    innerPromiseArray.push(
+      new Promise(function(resolve, reject) {
+        db
+        .collection('reviews')
+        .insertOne(newReview, (err, result) => {
+          if (err) reject();
+          resolve()
+        })
+      })
+    )
+
+    innerPromiseArray.push(
+      new Promise(function(resolve, reject) {
+        db
+        .collection('characteristic_reviews')
+        .insertOne(newCharactertisticRating, (err, result) => {
+          if (err) reject()
+          resolve()
+        })
+      })
+    )
+
+    Promise.all(innerPromiseArray)
+    .then(() => {
+      res.sendStatus(201);
+    })
+  })
 })
 
 module.exports = reviewsRouter 
