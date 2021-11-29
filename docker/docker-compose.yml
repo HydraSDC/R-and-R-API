@@ -1,0 +1,13 @@
+version: '3.4'
+
+services:
+  mongo:
+    image: sdc-mongo
+    container_name: sdc-mongo
+    ports:
+      - 1234:27017
+    environment:
+      MONGO_INITDB_DATABASE: sdcrandr
+    build:
+      context: .
+      dockerfile: mongo.Dockerfile

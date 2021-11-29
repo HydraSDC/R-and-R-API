@@ -224,7 +224,7 @@ reviewsRouter.route("/:review_id/helpful").put(async function (req, res) {
       {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
       {$inc: {helpfulness: 1}}
     ,(err) => {
-      if (err) throw err;
+      if (err) res.sendStatus(404).send();
       res.send()
     })
 
@@ -237,9 +237,13 @@ reviewsRouter.route("/:review_id/report").put(async function (req, res) {
     {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
     {$set: {reported: true}}
   ,(err) => {
-    if (err) throw err;
+    if (err) res.sendStatus(404).send();
     res.send()
   })
+})
+
+reviewsRouter.route("/").post(async function (req, res) {
+
 })
 
 module.exports = reviewsRouter 

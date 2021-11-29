@@ -8,8 +8,7 @@ const express = require("express");
 const testRouter = express.Router();
 
 testRouter.get('/', function (req, res) {
-  console.log('hello')
-  res.send('testing')
+  res.sendStatus(200)
 })
 
 module.exports = testRouter 
