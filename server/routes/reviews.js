@@ -219,16 +219,15 @@ reviewsRouter.route("/meta").get(async function (req, res) {
 })
 
 reviewsRouter.route("/:review_id/helpful").put(async function (req, res) {
-    db
-    .collection('reviews')
-    .findOneAndUpdate(
-      {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
-      {$inc: {helpfulness: 1}}
-    ,(err) => {
-      if (err) res.sendStatus(404).send();
-      res.send()
-    })
-
+  db
+  .collection('reviews')
+  .findOneAndUpdate(
+    {$and: [{review_id: Number(req.params.review_id)}, {reported: false}]},
+    {$inc: {helpfulness: 1}}
+  ,(err) => {
+    if (err) res.sendStatus(404).send();
+    res.send()
+  })
 })
 
 reviewsRouter.route("/:review_id/report").put(async function (req, res) {

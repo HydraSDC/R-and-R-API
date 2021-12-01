@@ -1,6 +1,16 @@
 version: '3.4'
 
 services:
+  node:
+      image: sdc-node
+      container_name: sdc-node
+      depends_on:
+        - mongo
+      ports:
+        - 3001:3001
+      build:
+        context: .
+        dockerfile: node.Dockerfile
   mongo:
     image: sdc-mongo
     container_name: sdc-mongo
@@ -9,5 +19,9 @@ services:
     environment:
       MONGO_INITDB_DATABASE: sdcrandr
     build:
-      context: .
+      context: ../server/db/data/
       dockerfile: mongo.Dockerfile
+    volumes: 
+      - sdcrandr:/data/db
+volumes:
+  sdcrandr:
